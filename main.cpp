@@ -23,6 +23,15 @@ struct Star {
   Mesh mesh;
 };
 
+struct Moon {
+  float radius;
+  float orbitalRadius;
+  float revolutionSpeed;
+  float rotationSpeed;
+  float axisTilt;
+  Mesh mesh;
+};
+
 struct Planet {
   float radius;
   float revolutionSpeed;
@@ -30,6 +39,7 @@ struct Planet {
   float axisTilt;
   glm::vec3 position;
   std::vector<glm::vec3> trail;
+  std::vector<Moon> moons;
   Mesh mesh;
 };
 
@@ -76,38 +86,42 @@ int main() {
   //  PLANET OBJECTS
   Shader shaderProgram("../Shaders/default.vert", "../Shaders/default.frag");
 
+  Moon earthMoon = {
+      0.5f,  4.0f,  1.0f,
+      0.05f, 0.05f, generateSphereMesh(1.0f, 20, 20, "../Textures/moon.jpg")};
+
   std::vector<Planet> planets = {
       // Mercury
       {1.2f, 0.85f, 0.03f, 0.01f, glm::vec3(18.0f, 0.0f, 0.0f),
-       std::vector<glm::vec3>(),
+       std::vector<glm::vec3>(), std::vector<Moon>(),
        generateSphereMesh(1.0f, 20, 20, "../Textures/mercury.jpg")},
       // Venus (retrograde rotation)
       {1.8f, 0.55f, -0.008f, 0.4f, glm::vec3(30.0f, 0.0f, 0.0f),
-       std::vector<glm::vec3>(),
+       std::vector<glm::vec3>(), std::vector<Moon>(),
        generateSphereMesh(1.0f, 20, 20, "../Textures/venus.jpg")},
       // Earth
       {2.0f, 0.45f, 1.0f, 0.41f, glm::vec3(42.0f, 0.0f, 0.0f),
-       std::vector<glm::vec3>(),
+       std::vector<glm::vec3>(), std::vector<Moon>{earthMoon},
        generateSphereMesh(1.0f, 20, 20, "../Textures/earth.jpg")},
       // Mars
       {1.5f, 0.35f, 0.95f, 0.44f, glm::vec3(56.0f, 0.0f, 0.0f),
-       std::vector<glm::vec3>(),
+       std::vector<glm::vec3>(), std::vector<Moon>(),
        generateSphereMesh(1.0f, 20, 20, "../Textures/mars.jpg")},
       // Jupiter
       {3.5f, 0.18f, 1.9f, 0.05f, glm::vec3(80.0f, 0.0f, 0.0f),
-       std::vector<glm::vec3>(),
+       std::vector<glm::vec3>(), std::vector<Moon>(),
        generateSphereMesh(1.0f, 20, 20, "../Textures/jupiter.jpg")},
       // Saturn
       {3.0f, 0.13f, 1.7f, 0.47f, glm::vec3(105.0f, 0.0f, 0.0f),
-       std::vector<glm::vec3>(),
+       std::vector<glm::vec3>(), std::vector<Moon>(),
        generateSphereMesh(1.0f, 20, 20, "../Textures/saturn.jpg")},
       // Uranus (retrograde rotation/tilt)
       {2.5f, 0.09f, -1.2f, 1.70f, glm::vec3(130.0f, 0.0f, 0.0f),
-       std::vector<glm::vec3>(),
+       std::vector<glm::vec3>(), std::vector<Moon>(),
        generateSphereMesh(1.0f, 20, 20, "../Textures/uranus.jpg")},
       // Neptune
       {2.3f, 0.07f, 1.3f, 0.50f, glm::vec3(160.0f, 0.0f, 0.0f),
-       std::vector<glm::vec3>(),
+       std::vector<glm::vec3>(), std::vector<Moon>(),
        generateSphereMesh(1.0f, 20, 20, "../Textures/neptune.jpg")}};
 
   GLuint modelUniformLocation = glGetUniformLocation(shaderProgram.ID, "model");
@@ -183,6 +197,28 @@ int main() {
                          glm::value_ptr(model));
 
       planet.mesh.Draw(shaderProgram, camera);
+
+      for (Moon &moon : planet.moons) {
+        float moonOrbitAngle = elapsed * moon.revolutionSpeed;
+        float moonRotationAngle = elapsed * moon.rotationSpeed;
+
+        glm::mat4 moonModel = glm::mat4(1.0f);
+        moonModel = glm::translate(moonModel, orbitPosition);
+        moonModel =
+            glm::rotate(moonModel, moonOrbitAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+        moonModel = glm::translate(moonModel,
+                                   glm::vec3(moon.orbitalRadius, 0.0f, 0.0f));
+        moonModel = glm::rotate(moonModel, moonRotationAngle,
+                                glm::vec3(0.0f, 1.0f, 0.0f));
+        moonModel =
+            glm::rotate(moonModel, moon.axisTilt, glm::vec3(1.0f, 0.0f, 0.0f));
+        moonModel = glm::scale(moonModel, glm::vec3(moon.radius));
+
+        glUniformMatrix4fv(modelUniformLocation, 1, GL_FALSE,
+                           glm::value_ptr(moonModel));
+
+        moon.mesh.Draw(shaderProgram, camera);
+      }
 
       // Trail
       if (!planet.trail.empty()) {
